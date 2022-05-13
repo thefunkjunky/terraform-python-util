@@ -1,0 +1,133 @@
+# Default configs. These will be merged with realm configs.
+
+# Realm-level configs. Keys be merged with defaults.
+# Maps to templates in the "global" directory.
+globals:
+  modules_dir: ../../../modules
+  company: default
+  realm: default
+  region: us-west-2
+  required_terraform_version: ">= 0.13.5"
+  terraform_providers:
+    aws:
+      source: hashicorp/aws
+      version: "3.35.0"
+  zone_domains: []
+  ecr_common_repos: []
+
+environment_defaults:
+  # VPC configs.
+  # TODO: make this more elegant by using terraform cidr functions.
+  vpc_domain_name: null
+  vpc_cidr: 10.1.0.0/16
+  vpc_private_cidr: 10.1.0.0/20
+  vpc_private_subnets:
+    private_az_a:
+      cidr: 10.1.0.0/24
+      az_suffix: a
+    private_az_b:
+      cidr: 10.1.1.0/24
+      az_suffix: b
+    private_az_c:
+      cidr: 10.1.2.0/24
+      az_suffix: c
+  vpc_public_cidr: 10.1.16.0/20
+  vpc_public_subnets:
+    public_az_a:
+      cidr: 10.1.16.0/24
+      az_suffix: a
+    public_az_b:
+      cidr: 10.1.17.0/24
+      az_suffix: b
+    public_az_c:
+      cidr: 10.1.18.0/24
+      az_suffix: c
+  vpc_tags: {}
+  private_subnet_tags: {}
+  public_subnet_tags: {}
+  # DB Configs
+  db_storage_size: 100
+  db_max_allocated_storage: 1000
+  db_instance_class: db.m5.large
+  db_engine_version: "11.10"
+  db_publicly_accesible: "false"
+  db_skip_final_snapshot: "true"
+  db_backup_retention_period: 7
+  db_temp_password: TempPassword00!!
+  db_password_encrypted: null
+
+k8_defaults:
+  version: "1.17"
+
+node_group_defaults:
+  capacity_type: "ON_DEMAND"
+  public: "false"
+  instance_types: ["m5.large"]
+  min_nodes: 1
+  max_nodes: 20
+  desired_nodes: 20
+  vol_size: 50
+  vol_type: gp2
+  node_tags: {}
+  node_labels: {}
+
+## default_actions are a list of shell commands executed, in order,
+## for the given action if no {action}.sh is found in the config
+## folder.
+
+# All read-only operations use -lock=false, as state locking isn't required.
+
+# Bootstrap and destroy actions use -lock=false, because the absence or
+# destruction of the DynamoDB lock table will cause errors.
+default_actions:
+  bootstrap:
+    - terraform init -lock=false
+    - terraform plan -lock=false
+    - terraform apply -auto-approve -lock=false
+  plan:
+    - terraform init -lock=false
+    - terraform plan -lock=false
+  apply:
+    - terraform init -lock=false
+    - terraform apply -auto-approve
+  destroy:
+    - terraform init -lock=false
+    - terraform plan -destroy -lock=false
+    - terraform destroy -auto-approve -lock=false
+
+### action_order configures the default order of action script operations
+### to take, so that dependencies are resolved and updated in the correct order.
+
+## IMPORTANT NOTES:
+# - All entries are appended to [root]/[company]/[realm]/
+
+# - "apply" list specifies the bootstrap, plan, and apply actions
+
+# - Any item with the word "environments" will expand the realm config's
+# "environments" config.  If there were "dev" and "prod" environments
+# configured, that would resolve to [root]/[company]/[realm]/dev,
+# and [root]/[company]/[realm]/prod.
+
+# - For the destroy action, you must leave out the global/backend,
+# as Terraform still needs to store state if resources are being destroyed.
+# If you wish to destroy the state bucket, you must do so manually.
+
+# - When "--target_env" is used, the apply section remains the same
+# so that higher dependencies in the globals are resolved and updated first
+# before executing the target environment configs.  However,
+# for a similar reason, the destroy list is reduced to just "environments",
+# in order to prevent the script from destroying global resources that other
+# environments depend on.
+action_order:
+  apply:
+    - global/backend
+    - global/ecr
+    - global/route53-zones-acm
+    - global/route53-zones-acm/acm_validation
+    - environments
+
+  destroy:
+    - environments
+    - global/route53-zones-acm/acm_validation
+    - global/route53-zones-acm
+    - global/ecr
