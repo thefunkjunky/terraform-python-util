@@ -356,4 +356,4 @@ To remove backend manually:
 Use the `--dry_run` flag with any other combination of arguments to display the `work_order`, which contains information on what folders are being targeted, what templates sources are being used, which mako template files are being generated vs. which regular files are being copied, what the merged config variables are for each folder, and what actions will be taken.  Using this flag will skip template generation along with any actions.
 
 ## Authors
-- Garrett Anderson <ganderson@kdinfotech.com>
+- Garrett Anderson <garrett@devnull.rip>
